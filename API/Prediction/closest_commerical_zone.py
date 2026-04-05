@@ -118,7 +118,7 @@ def obtain_lat_long(file_path: str) -> tuple[float, float]:
                 continue
             lats.append(float(parts[0].strip()))
             lons.append(float(parts[1].strip()))
-            if len(lats) == 5:
+            if len(lats) == 5: # Modify this number to change how many lats/longs we want to take in.
                 break
     if not lats:
         raise ValueError(f"No valid lat/lon pairs found in {file_path}")
@@ -145,6 +145,5 @@ def main(file_path):
 
 
 
-# ── Standalone test ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()

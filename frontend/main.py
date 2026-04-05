@@ -196,25 +196,25 @@ elif page == "Business Location Predictor ✨":
     with col1:
         min_inc = st.number_input("Minimum Neighborhood Household Income ($)", value=50000, step=5000)
         max_cr = st.number_input("Maximum Acceptable Crime Index (Lower is safer)", value=5000, step=500)
-    with col2:
-        irvine_prox = st.slider("Importance of Irvine Proximity (0-10)", 0, 10, 5)
-        parks_prox = st.slider("Importance of City Parks Access (0-10)", 0, 10, 5)
-    
-    col3, col4 = st.columns(2)
-    with col3:
         focus_inc = st.slider("Focus on High Income Areas (0-10)", 0, 10, 5)
         crime_focus = st.slider("Focus on Strict Low Crime (0-10)", 0, 10, 5)
-    with col4:
+    with col2:
         focus_cheap = st.slider("Focus on Affordable Real Estate (0-10)", 0, 10, 5)
+        parks_prox = st.slider("Importance of City Parks (0-10)", 0, 10, 5)
+        focus_renters = st.slider("Focus on High Renter Population (0-10)", 0, 10, 5)
+        focus_newer = st.slider("Focus on Newer Developments (0-10)", 0, 10, 5)
+        focus_family = st.slider("Focus on Large Families (0-10)", 0, 10, 5)
         
     final_criteria = {
         "min_income": min_inc,
         "max_crime": max_cr,
-        "importance_irvine_proximity": irvine_prox,
-        "importance_parks": parks_prox,
         "focus_high_income": focus_inc,
+        "focus_low_crime": crime_focus,
         "focus_low_house_price": focus_cheap,
-        "focus_low_crime": crime_focus
+        "importance_parks": parks_prox,
+        "focus_renters": focus_renters,
+        "focus_newer_devs": focus_newer,
+        "focus_families": focus_family
     }
     
     if st.button("Run Viability Model 🏆", use_container_width=True, type="primary"):
@@ -222,7 +222,11 @@ elif page == "Business Location Predictor ✨":
             st.error("The latest home pricing dataset is required but missing.")
         else:
             with st.spinner("Scoring locations across Orange County..."):
-                results = filter_and_score_locations(latest_prices_df, final_criteria)
+                if not housing_df.empty:
+                    merged_df = pd.merge(latest_prices_df, housing_df, left_on='Zipcode', right_on='ZCTA5CE20', how='inner')
+                else:
+                    merged_df = latest_prices_df
+                results = filter_and_score_locations(merged_df, final_criteria)
                 
             if results.empty:
                 st.warning("No areas matched your strict hard filters (e.g., minimum income or max crime). Try relaxing them.")
@@ -244,7 +248,11 @@ elif page == "Business Location Predictor ✨":
                     """, unsafe_allow_html=True)
                     
                 st.markdown("#### Full Viability Rankings")
-                st.dataframe(results[['City', 'Zipcode', 'Viability Score', 'Median Household Income Last_12', 'Price Index', 'Crime Data City Level (Arrest Disposition)', 'Distance from Irvine Spectrum (km)', 'City Park Scores']], use_container_width=True)
+                display_cols = ['City', 'Zipcode', 'Viability Score']
+                for col in ['Median Household Income Last_12', 'Crime Data City Level (Arrest Disposition)', 'Home_Value_Median', 'City Park Scores', 'Renter Percentage', 'Median_Year_Built', 'Avg_Household_Size']:
+                    if col in results.columns:
+                        display_cols.append(col)
+                st.dataframe(results[display_cols], use_container_width=True)
 
                 # Heatmap rendering
                 st.markdown("### Viability Heatmap")

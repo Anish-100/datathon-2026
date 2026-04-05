@@ -110,7 +110,12 @@ if page == "Overview & Data Explorer":
     st.header("Data Explorer (Raw vs Clean) 🔍")
     st.write("Explore the original raw datasets and compare them against their cleaned counterparts extracted via the API folder.")
     
-    tab1, tab2, tab3, tab4 = st.tabs(["Raw Housing Census", "Cleaned Housing Data", "Raw Historical Prices", "Cleaned Latest Models"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Raw Census (OCACS 2021)",
+        "Cleaned Housing Characteristics",
+        "Raw Home Prices (Full History)",
+        "Cleaned Home Prices (Latest)"
+    ])
     
     with tab1:
         st.subheader("Raw Census Export (OCACS 2021)")

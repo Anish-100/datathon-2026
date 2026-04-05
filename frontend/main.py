@@ -87,7 +87,7 @@ def get_zip_coords(housing_df):
     return pd.DataFrame()
 
 # Title
-st.title("🍊 Orange County Optimal Business Locations")
+st.title("Orange County Optimal Business Locations")
 st.markdown("Explore demographics, housing characteristics, and economic data across Orange County zip codes to discover the best locations for your business.")
 
 # Navigation
@@ -96,7 +96,7 @@ page = st.sidebar.radio("Select View:", [
     "Overview & Data Explorer", 
     "Geographical Map", 
     "Demographics & Economy", 
-    "Business Location Predictor ✨"
+    "Business Location Predictor"
 ])
 
 st.sidebar.markdown("---")
@@ -107,7 +107,7 @@ prices_df = load_home_prices()
 latest_prices_df = load_latest_home_prices()
 
 if page == "Overview & Data Explorer":
-    st.header("Data Explorer (Raw vs Clean) 🔍")
+    st.header("Data Explorer (Raw vs Clean)")
     st.write("Explore the original raw datasets and compare them against their cleaned counterparts extracted via the API folder.")
     
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -150,7 +150,7 @@ if page == "Overview & Data Explorer":
             st.warning("Latest clean prices dataset not found.")
 
 elif page == "Geographical Map":
-    st.header("Interactive Geographic Map 🗺️")
+    st.header("Interactive Geographic Map")
     st.write("Visualizing ZIP Code Tabulation Areas in Orange County.")
     
     if not housing_df.empty and 'lat' in housing_df.columns and 'lon' in housing_df.columns:
@@ -158,7 +158,7 @@ elif page == "Geographical Map":
         st.markdown("### Basic Distribution")
         st.map(map_df, color="#E65100")
         
-        st.markdown("### 🏢 Advanced Statistical Map: Housing & Economy")
+        st.markdown("### Advanced Statistical Map: Housing & Economy")
         try:
             map_df['Zipcode'] = pd.to_numeric(map_df['ZCTA5CE20'], errors='coerce')
             avg_prices = latest_prices_df.groupby('Zipcode')['Price Index'].mean().reset_index()
@@ -200,7 +200,7 @@ elif page == "Geographical Map":
         st.warning("No geographic coordinates found.")
 
 elif page == "Demographics & Economy":
-    st.header("Clean Demographics & Economic Trends 📈")
+    st.header("Clean Demographics & Economic Trends")
     if not latest_prices_df.empty:
         col1, col2 = st.columns(2)
         with col1:
@@ -224,8 +224,8 @@ elif page == "Demographics & Economy":
     else:
         st.warning("Clean latest home prices dataset not available.")
 
-elif page == "Business Location Predictor ✨":
-    st.header("Business Location Predictor 🎯")
+elif page == "Business Location Predictor":
+    st.header("Business Location Predictor")
     st.write("Use the sliders below to dial in the perfect parameters for your business. The model will calculate viability scores instantly.")
     
     st.markdown("### Location Parameters")

@@ -1,41 +1,42 @@
+import sqlite3
 
-RSM_ZIP_CODES = (92688, 92679)
+RSM_coordsS = (92688, 92679)
 
 
-def make_dog_owner(dog_owner: str, zip_code: int, conn) -> int:
+def make_dog_owner(dog_owner: str, coords: int, conn) -> int:
     """
     Compares dog-owner flag ('Y'/'N') against the RSM ZIP code's mode.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT DogOwnerMode FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT DogOwner FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     return 1 if dog_owner == result[0] else 0
 
 
-def make_cat_owner(cat_owner: str, zip_code: int, conn) -> int:
+def make_cat_owner(cat_owner: str, coords: int, conn) -> int:
     """
     Compares cat-owner flag ('Y'/'N') against the RSM ZIP code's mode.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT CatOwnerMode FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT CatOwner FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     return 1 if cat_owner == result[0] else 0
 
 
-def make_net_worth(net_worth: int, zip_code: int, conn) -> int:
+def make_net_worth(net_worth: int, coords: int, conn) -> int:
     """
-    Compares net worth code (1–9) against the RSM ZIP code's median code.
+    Compares net worth code (1-9) against the RSM ZIP code's median code.
     1=<$1, 2=$1-4.9k, 3=$5-14.9k, 4=$15-24.9k, 5=$25-49.9k,
     6=$50-99.9k, 7=$100-249.9k, 8=$250-499.9k, 9=$500k+
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT MedianNetWorth FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT NetWorth FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     get_cat = lambda val: (
         'a' if val < 3 else
@@ -46,27 +47,27 @@ def make_net_worth(net_worth: int, zip_code: int, conn) -> int:
     return 1 if get_cat(net_worth) == get_cat(result[0]) else 0
 
 
-def make_credit_card_usage(cc_user: str, zip_code: int, conn) -> int:
+def make_credit_card_usage(cc_user: str, coords: int, conn) -> int:
     """
     Compares credit card user flag ('Y'/'N') against the RSM ZIP code's mode.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT CreditCardUserMode FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT CreditCardUser FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     return 1 if cc_user == result[0] else 0
 
 
-def make_vehicle_knowledge(vehicle_count: int, zip_code: int, conn) -> int:
+def make_vehicle_knowledge(vehicle_count: int, coords: int, conn) -> int:
     """
     Compares number of registered vehicles per household against the RSM ZIP code's median.
     RSM is car-dependent; 2-3 vehicles per household is typical.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT MedianVehicleCount FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT VehicleKnownOwnedNumber FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     get_cat = lambda val: (
         'a' if val < 1 else
@@ -77,28 +78,28 @@ def make_vehicle_knowledge(vehicle_count: int, zip_code: int, conn) -> int:
     return 1 if get_cat(vehicle_count) == get_cat(result[0]) else 0
 
 
-def make_owner_renter(owner_renter: str, zip_code: int, conn) -> int:
+def make_owner_renter(owner_renter: str, coords: int, conn) -> int:
     """
     Compares owner/renter flag ('O'/'R') against the RSM ZIP code's mode.
     92688 ~71% owners, 92679 ~91% owners.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT OwnerOccupancyMode FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT OwnerRenter FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     return 1 if owner_renter == result[0] else 0
 
 
-def make_household_size(size: int, zip_code: int, conn) -> int:
+def make_household_size(size: int, coords: int, conn) -> int:
     """
     Compares household size (integer count) against the RSM ZIP code's average.
     92688 ~2.87, 92679 ~2.99 — both lean family-sized.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT AvgHouseholdSize FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT HouseholdSize FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     get_cat = lambda val: (
         'a' if val < 2 else
@@ -109,15 +110,15 @@ def make_household_size(size: int, zip_code: int, conn) -> int:
     return 1 if get_cat(size) == get_cat(result[0]) else 0
 
 
-def make_num_children(num_children: int, zip_code: int, conn) -> int:
+def make_num_children(num_children: int, coords: int, conn) -> int:
     """
     Compares number of children (integer count) against the RSM ZIP code's average.
     RSM is family-oriented; typical range is 1-2 children per household.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT AvgChildrenPerHousehold FROM MELISSA_RSM_CLEANED WHERE Zip_Code = ?", (zip_code,))
+    cursor.execute("SELECT NumberOfChildren FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
     result = cursor.fetchone()
-    if result is None:
+    if result[0] is None:
         return 0
     get_cat = lambda val: (
         'a' if val < 1 else
@@ -129,7 +130,7 @@ def make_num_children(num_children: int, zip_code: int, conn) -> int:
 
 
 def compute_rsm_viability(
-    zip_code: int,
+    coords: int,
     conn,
     # --- input values (CSV field formats) ---
     dog_owner: str, cat_owner: str, net_worth: int, cc_user: str, vehicle_count: int,
@@ -164,14 +165,14 @@ def compute_rsm_viability(
     B_NUM_CHILDREN  = 0.08
     B_VEHICLE       = 0.05
 
-    dog_owner_score     = make_dog_owner(dog_owner, zip_code, conn)
-    cat_owner_score     = make_cat_owner(cat_owner, zip_code, conn)
-    net_worth_score     = make_net_worth(net_worth, zip_code, conn)
-    credit_card_score   = make_credit_card_usage(cc_user, zip_code, conn)
-    vehicle_score       = make_vehicle_knowledge(vehicle_count, zip_code, conn)
-    owner_renter_score  = make_owner_renter(owner_renter, zip_code, conn)
-    household_sz_score  = make_household_size(household_size, zip_code, conn)
-    num_children_score  = make_num_children(num_children, zip_code, conn)
+    dog_owner_score     = make_dog_owner(dog_owner, coords, conn)
+    cat_owner_score     = make_cat_owner(cat_owner, coords, conn)
+    net_worth_score     = make_net_worth(net_worth, coords, conn)
+    credit_card_score   = make_credit_card_usage(cc_user, coords, conn)
+    vehicle_score       = make_vehicle_knowledge(vehicle_count, coords, conn)
+    owner_renter_score  = make_owner_renter(owner_renter, coords, conn)
+    household_sz_score  = make_household_size(household_size, coords, conn)
+    num_children_score  = make_num_children(num_children, coords, conn)
 
     viability = (
         dog_owner_score     * (B_DOG_OWNER    + a_dog_owner)    +
@@ -183,6 +184,41 @@ def compute_rsm_viability(
         household_sz_score  * (B_HOUSEHOLD_SZ + a_household_size) +
         num_children_score  * (B_NUM_CHILDREN + a_num_children)
     )
-    print('LAT AND LONG')
-    print(viability)
+
     return viability
+
+def main():
+    conn = sqlite3.connect('API/Prediction/consumer_data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT Latitude, Longitude FROM consumer_data")
+    rows = cursor.fetchall()
+    results = [
+        (
+            (lat, lon),
+            compute_rsm_viability(
+                coords=(lat, lon), conn=conn,
+                dog_owner='Y', cat_owner='N', net_worth=9,
+                cc_user='Y', vehicle_count=2,
+                owner_renter=0, household_size=3,
+                num_children=1,
+            )
+        )
+        for lat, lon in rows
+        
+    ]
+
+    results.sort(key=lambda x: x[1], reverse=True)
+    with open('API/Prediction/pretty_text.txt','w') as f:
+        f.write(f"Coords -> Viability")
+        f.write('\n')
+        with open('API/Prediction/raw_text.txt','w') as f_2:
+            f_2.write(f"Coords , Viability")
+            f_2.write('\n')
+            for coords, viability in results:
+                f_2.write(f'{coords},{viability}')
+                f_2.write('\n')
+                f.write(f"{coords} -> {viability}")
+                f.write('\n')
+
+if __name__ == '__main__':
+    main()

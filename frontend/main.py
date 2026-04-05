@@ -57,6 +57,13 @@ def load_housing_data():
     return pd.DataFrame()
 
 @st.cache_data
+def load_raw_housing_data():
+    csv_path = DATA_DIR / "Newest_with_headers_OCACS_2021_Housing_Characteristics_for_ZIP_Code_Tabulation_Areas copy.csv"
+    if csv_path.exists():
+        return pd.read_csv(csv_path)
+    return pd.DataFrame()
+
+@st.cache_data
 def load_home_prices():
     csv_path = DATA_DIR / "Orange CountyHomePrices.csv"
     if csv_path.exists():
@@ -94,29 +101,48 @@ page = st.sidebar.radio("Select View:", [
 
 st.sidebar.markdown("---")
 
+raw_housing_df = load_raw_housing_data()
 housing_df = load_housing_data()
 prices_df = load_home_prices()
 latest_prices_df = load_latest_home_prices()
 
 if page == "Overview & Data Explorer":
-    st.header("Raw Data Explorer 🔍")
-    st.write("Browse the datasets collected for the analysis. You can sort and search through the tables.")
+    st.header("Data Explorer (Raw vs Clean) 🔍")
+    st.write("Explore the original raw datasets and compare them against their cleaned counterparts extracted via the API folder.")
     
-    st.subheader("Housing Characteristics (2021 ZCTA)")
-    if not housing_df.empty:
-        st.dataframe(housing_df.head(500), use_container_width=True)
-        st.caption(f"Total Rows: {len(housing_df)} | Showing first 500 rows")
-    else:
-        st.warning("Housing dataset not found.")
-        
-    st.markdown("---")
+    tab1, tab2, tab3, tab4 = st.tabs(["Raw Housing Census", "Cleaned Housing Data", "Raw Historical Prices", "Cleaned Latest Models"])
     
-    st.subheader("Orange County Home Prices")
-    if not prices_df.empty:
-        st.dataframe(prices_df.head(500), use_container_width=True)
-        st.caption(f"Total Rows: {len(prices_df)} | Showing first 500 rows")
-    else:
-        st.warning("Home prices dataset not found.")
+    with tab1:
+        st.subheader("Raw Census Export (OCACS 2021)")
+        if not raw_housing_df.empty:
+            st.dataframe(raw_housing_df.head(500), use_container_width=True)
+            st.caption(f"Total Rows: {len(raw_housing_df)} | Showing first 500 rows")
+        else:
+            st.warning("Raw housing dataset not found.")
+            
+    with tab2:
+        st.subheader("Clean Geo-Mapped Data")
+        if not housing_df.empty:
+            st.dataframe(housing_df.head(500), use_container_width=True)
+            st.caption(f"Total Rows: {len(housing_df)} | Showing first 500 rows")
+        else:
+            st.warning("Clean housing dataset not found.")
+
+    with tab3:
+        st.subheader("Raw Economic Timelines (Home Prices)")
+        if not prices_df.empty:
+            st.dataframe(prices_df.head(500), use_container_width=True)
+            st.caption(f"Total Rows: {len(prices_df)} | Showing first 500 rows")
+        else:
+            st.warning("Home prices dataset not found.")
+            
+    with tab4:
+        st.subheader("Cleaned Financial Machine Learning File")
+        if not latest_prices_df.empty:
+            st.dataframe(latest_prices_df.head(500), use_container_width=True)
+            st.caption(f"Total Rows: {len(latest_prices_df)} | Showing first 500 rows")
+        else:
+            st.warning("Latest clean prices dataset not found.")
 
 elif page == "Geographical Map":
     st.header("Interactive Geographic Map 🗺️")
@@ -130,11 +156,11 @@ elif page == "Geographical Map":
         st.markdown("### 🏢 Advanced Statistical Map: Housing & Economy")
         try:
             map_df['Zipcode'] = pd.to_numeric(map_df['ZCTA5CE20'], errors='coerce')
-            avg_prices = prices_df.groupby('Zipcode')['Price Index'].mean().reset_index()
+            avg_prices = latest_prices_df.groupby('Zipcode')['Price Index'].mean().reset_index()
             merged_map_data = pd.merge(map_df, avg_prices, on='Zipcode', how='inner')
             
-            prices_df['Income_Num'] = pd.to_numeric(prices_df['Median Household Income Last_12'], errors='coerce')
-            avg_income = prices_df.groupby('Zipcode')['Income_Num'].mean().reset_index()
+            latest_prices_df['Income_Num'] = pd.to_numeric(latest_prices_df['Median Household Income Last_12'], errors='coerce')
+            avg_income = latest_prices_df.groupby('Zipcode')['Income_Num'].mean().reset_index()
             merged_map_data = pd.merge(merged_map_data, avg_income, on='Zipcode', how='left')
             
             if not merged_map_data.empty:
@@ -169,22 +195,29 @@ elif page == "Geographical Map":
         st.warning("No geographic coordinates found.")
 
 elif page == "Demographics & Economy":
-    st.header("Demographics & Economic Trends 📈")
-    if not prices_df.empty:
+    st.header("Clean Demographics & Economic Trends 📈")
+    if not latest_prices_df.empty:
         col1, col2 = st.columns(2)
         with col1:
-            if 'Year' in prices_df.columns and 'Price Index' in prices_df.columns:
-                yearly_prices = prices_df.groupby('Year')['Price Index'].mean().reset_index()
-                st.subheader("Average Home Price Index")
-                st.line_chart(yearly_prices.set_index('Year'), color="#E65100")
+            if 'City' in latest_prices_df.columns and 'City Park Scores' in latest_prices_df.columns:
+                st.subheader("City Park Accessibility Scores")
+                latest_prices_df['Park_Num'] = pd.to_numeric(latest_prices_df['City Park Scores'], errors='coerce')
+                city_parks = latest_prices_df.groupby('City')['Park_Num'].mean().sort_values(ascending=False).head(15)
+                st.bar_chart(city_parks, color="#2E7D32")
         with col2:
-            if 'City' in prices_df.columns and 'Median Household Income Last_12' in prices_df.columns:
-                st.subheader("Average Income by City")
-                prices_df['Income_Num'] = pd.to_numeric(prices_df['Median Household Income Last_12'], errors='coerce')
-                city_income = prices_df.groupby('City')['Income_Num'].mean().sort_values(ascending=False).head(15)
+            if 'City' in latest_prices_df.columns and 'Median Household Income Last_12' in latest_prices_df.columns:
+                st.subheader("Average Income by City (Cleaned)")
+                latest_prices_df['Income_Num'] = pd.to_numeric(latest_prices_df['Median Household Income Last_12'], errors='coerce')
+                city_income = latest_prices_df.groupby('City')['Income_Num'].mean().sort_values(ascending=False).head(15)
                 st.bar_chart(city_income, color="#FFA726")
+                
+        if 'City' in latest_prices_df.columns and 'Crime Data City Level (Arrest Disposition)' in latest_prices_df.columns:
+            st.subheader("Lowest Crime Indexes by City")
+            latest_prices_df['Crime_Num'] = pd.to_numeric(latest_prices_df['Crime Data City Level (Arrest Disposition)'], errors='coerce')
+            city_crime = latest_prices_df.groupby('City')['Crime_Num'].mean().sort_values(ascending=True).head(20)
+            st.bar_chart(city_crime, color="#1565C0")
     else:
-        st.warning("Home prices dataset not available.")
+        st.warning("Clean latest home prices dataset not available.")
 
 elif page == "Business Location Predictor ✨":
     st.header("Business Location Predictor 🎯")

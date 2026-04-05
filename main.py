@@ -1,6 +1,6 @@
 import ast
-import API.Prediction.closest_commerical_zone as ccz
-import API.Prediction.melissa_prediction as mp
+from API.Prediction import closest_commerical_zone as ccz
+from API.Prediction import melissa_prediction as mp
 import API.api as api
 
 
@@ -15,7 +15,7 @@ def run():
     pairs = parse_query_results(query)
     mp.main(pairs)
     #Reads from raw_text
-    ccz.main('API/Prediction/raw_text.txt')
+    ccz.main('API/Prediction/raw_text_2.txt')
 
 def parse_query_results(raw_response):
     """Parse the LLM string response into a list of tuples."""
@@ -25,11 +25,10 @@ def parse_query_results(raw_response):
     return pairs
 
 def get_query():
-    return str(input("Please enter your business idea along with are some main data points that you would like to see. Mentioning demographics and other relevant data will be helpful."))
+    return str(input("Please enter your business idea along with are some main data points that" \
+    " you would like to see. Mentioning demographics and other relevant data will be helpful.:"))
 
     
-
-
 PROMPT = """
 Based on the business idea proposed, modify these traits where Y is yes N is No.
  This is based in rancho santa margarita, so take that in concern when creating your values.

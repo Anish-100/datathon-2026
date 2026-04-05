@@ -1,5 +1,7 @@
 import json
 import math
+import time
+import urllib.error
 import urllib.request
 import urllib.parse
 
@@ -34,11 +36,21 @@ def fetch_nearby_commercial(lat: float, lon: float, radius_m: int = 5000) -> lis
     out center;
     """
     data = urllib.parse.urlencode({"data": query}).encode("utf-8")
-    req = urllib.request.Request(OVERPASS_URL, data=data, method="POST")
-    req.add_header("User-Agent", "datathon-zone-finder/1.0")
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        result = json.loads(resp.read())
-    return result.get("elements", [])
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(OVERPASS_URL, data=data, method="POST")
+            req.add_header("User-Agent", "datathon-zone-finder/1.0")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read())
+            return result.get("elements", [])
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 504) and attempt < 2:
+                wait = 10 * (attempt + 1)
+                print(f"  Overpass returned {e.code}, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+    return []
 
 
 def _extract_center(element: dict) -> tuple[float, float] | None:

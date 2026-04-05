@@ -175,7 +175,8 @@ page = st.sidebar.radio("Select View:", [
     "Overview & Data Explorer", 
     "Geographical Map", 
     "Demographics & Economy", 
-    "Business Location Predictor"
+    "Business Location Predictor",
+    "RSM Consumer Predictor"
 ])
 
 st.sidebar.markdown("---")
@@ -521,3 +522,184 @@ elif page == "Business Location Predictor":
                         ))
                     else:
                         st.info("Geographic visualization unavailable. Ensure ZCTA coordinates exist.")
+
+# ── RSM Consumer Predictor ──────────────────────────────────────────────────
+elif page == "RSM Consumer Predictor":
+    import ast
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    # Ensure root is on sys.path so we can import API.*
+    _root = str(_Path(__file__).parent.parent)
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+
+    import API.api as _api
+    from API.Prediction import melissa_prediction as _mp
+    from API.Prediction import closest_commerical_zone as _ccz
+
+    _RSM_PROMPT = """
+Based on the business idea proposed, modify these traits where Y is yes N is No.
+ This is based in rancho santa margarita, so take that in concern when creating your values.
+You will create a a list of 9 tuples, the first of each tuple will be specificed below also with tags of what it should look like.
+The second of each tuple will be the weight you think will apply to each tuple out of 100.
+The more important these core ideas are to the business idea, the higher weightage they should get out of 100. 
+('Y', 0.0),    # dog_owner
+('N', 0.0),    # cat_owner
+(9, 80.0),     # net_worth
+('Y', 50.0),   # cc_user
+(2, 20.0),     # vehicle_count
+('O', 30.0),   # owner_renter
+(3, 15.0),     # household_size
+(1, 10.0),     # num_children
+('Y', 0.0),    # home_improvement_diy
+Ensure no special symbols like %/^&*@!
+Return them in this order only.
+Return a list of these tuples in Python, and nothing else. 
+"""
+
+    _RSM_PROMPT_2 = """
+dog_owner: Compares dog-owner flag ('Y'/'N') against the RSM ZIP code's mode.
+
+cat_owner: Compares cat-owner flag ('Y'/'N') against the RSM ZIP code's mode.
+
+net_worth: Compares net worth code (1-9) against the RSM ZIP code's median code. 1=<$1, 2=$1-4.9k, 3=$5-14.9k, 4=$15-24.9k, 5=$25-49.9k, 6=$50-99.9k, 7=$100-249.9k, 8=$250-499.9k, 9=$500k+
+
+cc_user: Compares credit card user flag ('Y'/'N') against the RSM ZIP code's mode.
+
+vehicle_count: Compares number of registered vehicles per household against the RSM ZIP code's median. RSM is car-dependent; 2-3 vehicles per household is typical.
+
+owner_renter: Compares owner/renter flag ('O'/'R') against the RSM ZIP code's mode. 92688 ~71% owners, 92679 ~91% owners.
+
+household_size: Compares household size (integer count) against the RSM ZIP code's average. 92688 ~2.87, 92679 ~2.99 — both lean family-sized.
+
+num_children: Compares number of children (integer count) against the RSM ZIP code's average. RSM is family-oriented; typical range is 1-2 children per household.
+
+home_improvement_diy: Compares home-improvement DIY flag ('Y'/'N') against the RSM ZIP code's mode.
+"""
+
+    st.header("RSM Consumer Predictor")
+    st.markdown(
+        "Describe your business idea and the AI will score every consumer coordinate in "
+        "Rancho Santa Margarita, identify the best-fit locations, and find the nearest "
+        "commercial zone to those hot-spots."
+    )
+
+    rsm_prompt_input = st.text_area(
+        "Business description",
+        placeholder='e.g. "A premium pet grooming salon for affluent dog owners in RSM."',
+        height=110,
+        key="rsm_prompt_input",
+    )
+
+    run_rsm = st.button("Run RSM Prediction", type="primary", use_container_width=True)
+
+    if run_rsm:
+        if not rsm_prompt_input.strip():
+            st.warning("Please enter a business description first.")
+        else:
+            # ── Step 1: Ask Gemini to build the parameter list ────────────────
+            with st.spinner("Step 1/3 — AI is building your parameter tuple list..."):
+                try:
+                    full_prompt = rsm_prompt_input.strip() + _RSM_PROMPT + _RSM_PROMPT_2
+                    raw_query = _api.main(prompt=full_prompt)
+                    pairs = ast.literal_eval(raw_query.strip())
+                    st.success(f"✅ AI generated {len(pairs)} parameter tuples.")
+                    with st.expander("View raw parameter tuples"):
+                        st.code(str(pairs), language="python")
+                except Exception as e:
+                    st.error(f"AI parameter generation failed: {e}")
+                    st.stop()
+
+            # ── Step 2: Score all consumer coordinates ────────────────────────
+            with st.spinner("Step 2/3 — Scoring all RSM consumer coordinates (this may take a moment)..."):
+                try:
+                    _mp.main(pairs)
+                    st.success("✅ Viability scores computed and saved.")
+                except Exception as e:
+                    st.error(f"Scoring failed: {e}")
+                    st.stop()
+
+            # ── Step 3: Parse pretty_text.txt → DataFrame ─────────────────────
+            pretty_path = _Path(__file__).parent.parent / "API" / "Prediction" / "pretty_text.txt"
+            raw2_path   = _Path(__file__).parent.parent / "API" / "Prediction" / "raw_text_2.txt"
+
+            rows_rsm = []
+            if pretty_path.exists():
+                with open(pretty_path, "r") as _f:
+                    for line in _f.readlines()[1:]:  # skip header
+                        m = re.match(r"\(([^,]+),\s*([^)]+)\)\s*->\s*([0-9.]+)", line.strip())
+                        if m:
+                            rows_rsm.append({
+                                "lat": float(m.group(1)),
+                                "lon": float(m.group(2)),
+                                "viability_score": float(m.group(3)),
+                            })
+
+            if not rows_rsm:
+                st.warning("No scored results found in pretty_text.txt. The database may be empty.")
+            else:
+                rsm_df = pd.DataFrame(rows_rsm).sort_values("viability_score", ascending=False)
+
+                # ── Top results cards ─────────────────────────────────────────
+                st.markdown("### 🏆 Top Scoring Locations")
+                top3 = rsm_df.head(3)
+                card_cols = st.columns(3)
+                for i, (_, row) in enumerate(top3.iterrows()):
+                    card_cols[i].markdown(f"""
+                    <div class="score-card">
+                        <h2 style="margin:0; font-size:22px;">#{i+1} Location</h2>
+                        <p style="margin:5px 0;"><strong>Lat:</strong> {row['lat']:.5f}</p>
+                        <p style="margin:5px 0;"><strong>Lon:</strong> {row['lon']:.5f}</p>
+                        <p style="margin:5px 0; color:#E65100; font-weight:bold; font-size:20px;">Score: {row['viability_score']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # ── Full ranked table ─────────────────────────────────────────
+                st.markdown("#### Full Viability Rankings")
+                st.dataframe(rsm_df.reset_index(drop=True), use_container_width=True)
+
+                # ── Heatmap ───────────────────────────────────────────────────
+                st.markdown("### Consumer Viability Heatmap (RSM)")
+                max_score_rsm = rsm_df["viability_score"].max()
+                rsm_df["weight"] = rsm_df["viability_score"] / max_score_rsm if max_score_rsm > 0 else 1.0
+
+                heat_layer = pdk.Layer(
+                    "HeatmapLayer",
+                    rsm_df,
+                    opacity=0.9,
+                    get_position=["lon", "lat"],
+                    get_weight="weight",
+                    radiusPixels=60,
+                    threshold=0.05,
+                )
+                center_lat = rsm_df["lat"].mean()
+                center_lon = rsm_df["lon"].mean()
+                st.pydeck_chart(pdk.Deck(
+                    layers=[heat_layer],
+                    initial_view_state=pdk.ViewState(
+                        latitude=center_lat, longitude=center_lon, zoom=13, pitch=40
+                    ),
+                    map_style="dark",
+                ))
+
+            # ── Step 3b: Closest commercial zone ──────────────────────────────
+            with st.spinner("Step 3/3 — Finding the nearest commercial zone via OpenStreetMap..."):
+                try:
+                    if raw2_path.exists():
+                        avg_lat, avg_lon = _ccz.obtain_lat_long(str(raw2_path))
+                        zone = _ccz.find_closest_commercial_zone(avg_lat, avg_lon)
+                        st.markdown("### Nearest Commercial Zone to Top Locations")
+                        if zone:
+                            z1, z2, z3, z4 = st.columns(4)
+                            z1.metric("Name", zone["name"])
+                            z2.metric("Land Use", zone["landuse"].capitalize())
+                            z3.metric("Distance", f"{zone['distance_m']:,.0f} m")
+                            z4.metric("Miles", f"{zone['distance_m']/1609.34:.2f} mi")
+                            st.map(pd.DataFrame([{"lat": zone["lat"], "lon": zone["lon"]}]))
+                        else:
+                            st.info("No commercial zones found within 30 km of the top coordinates.")
+                    else:
+                        st.warning("raw_text_2.txt not found — skipping commercial zone lookup.")
+                except Exception as e:
+                    st.error(f"Commercial zone lookup failed: {e}")

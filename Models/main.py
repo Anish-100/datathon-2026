@@ -10,7 +10,7 @@ def filter_and_score_locations(df: pd.DataFrame, criteria: dict) -> pd.DataFrame
 
     # Ensure numeric columns
     numeric_cols = ['Price Index', 'Median Household Income Last_12', 'Crime Data City Level (Arrest Disposition)', 
-                   'Distance from Irvine Spectrum (km)']
+                   'Distance from Irvine Spectrum (km)', 'City Park Scores']
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -21,7 +21,8 @@ def filter_and_score_locations(df: pd.DataFrame, criteria: dict) -> pd.DataFrame
         'Price Index': 'mean',
         'Median Household Income Last_12': 'mean',
         'Crime Data City Level (Arrest Disposition)': 'mean',
-        'Distance from Irvine Spectrum (km)': 'mean'
+        'Distance from Irvine Spectrum (km)': 'mean',
+        'City Park Scores': 'mean'
     }
     
     valid_agg_dict = {k: v for k, v in agg_dict.items() if k in df.columns}
@@ -61,6 +62,14 @@ def filter_and_score_locations(df: pd.DataFrame, criteria: dict) -> pd.DataFrame
     if 'Distance from Irvine Spectrum (km)' in grouped.columns:
         w_irvine = criteria.get('importance_irvine_proximity', 0) / 10.0
         scores += normalize(grouped['Distance from Irvine Spectrum (km)'], reverse=True) * w_irvine * 100
+
+    if 'City Park Scores' in grouped.columns:
+        w_parks = criteria.get('importance_parks', 0) / 10.0
+        scores += normalize(grouped['City Park Scores']) * w_parks * 100
+
+    if 'Crime Data City Level (Arrest Disposition)' in grouped.columns:
+        w_crime = criteria.get('focus_low_crime', 0) / 10.0
+        scores += normalize(grouped['Crime Data City Level (Arrest Disposition)'], reverse=True) * w_crime * 100
 
     grouped['Viability Score'] = scores.round(1)
     

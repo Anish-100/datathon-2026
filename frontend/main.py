@@ -198,12 +198,12 @@ elif page == "Business Location Predictor ✨":
         max_cr = st.number_input("Maximum Acceptable Crime Index (Lower is safer)", value=5000, step=500)
     with col2:
         irvine_prox = st.slider("Importance of Irvine Proximity (0-10)", 0, 10, 5)
-        st.write("") # spacing
-        st.write("")
+        parks_prox = st.slider("Importance of City Parks Access (0-10)", 0, 10, 5)
     
     col3, col4 = st.columns(2)
     with col3:
         focus_inc = st.slider("Focus on High Income Areas (0-10)", 0, 10, 5)
+        crime_focus = st.slider("Focus on Strict Low Crime (0-10)", 0, 10, 5)
     with col4:
         focus_cheap = st.slider("Focus on Affordable Real Estate (0-10)", 0, 10, 5)
         
@@ -211,8 +211,10 @@ elif page == "Business Location Predictor ✨":
         "min_income": min_inc,
         "max_crime": max_cr,
         "importance_irvine_proximity": irvine_prox,
+        "importance_parks": parks_prox,
         "focus_high_income": focus_inc,
-        "focus_low_house_price": focus_cheap
+        "focus_low_house_price": focus_cheap,
+        "focus_low_crime": crime_focus
     }
     
     if st.button("Run Viability Model 🏆", use_container_width=True, type="primary"):
@@ -242,7 +244,7 @@ elif page == "Business Location Predictor ✨":
                     """, unsafe_allow_html=True)
                     
                 st.markdown("#### Full Viability Rankings")
-                st.dataframe(results[['City', 'Zipcode', 'Viability Score', 'Median Household Income Last_12']], use_container_width=True)
+                st.dataframe(results[['City', 'Zipcode', 'Viability Score', 'Median Household Income Last_12', 'Price Index', 'Crime Data City Level (Arrest Disposition)', 'Distance from Irvine Spectrum (km)', 'City Park Scores']], use_container_width=True)
 
                 # Heatmap rendering
                 st.markdown("### Viability Heatmap 🔥")

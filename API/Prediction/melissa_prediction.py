@@ -15,6 +15,18 @@ def make_dog_owner(dog_owner: str, coords: int, conn) -> int:
     return 1 if dog_owner == result[0] else 0
 
 
+def make_home_improvement_diy(home_improvement_diy: str, coords: int, conn) -> int:
+    """
+    Compares home-improvement DIY flag ('Y'/'N') against the RSM ZIP code's mode.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT HomeImprovementDIY FROM consumer_data WHERE latitude = ? AND longitude = ?", (coords[0], coords[1]))
+    result = cursor.fetchone()
+    if result[0] is None:
+        return 0
+    return 1 if home_improvement_diy == result[0] else 0
+
+
 def make_cat_owner(cat_owner: str, coords: int, conn) -> int:
     """
     Compares cat-owner flag ('Y'/'N') against the RSM ZIP code's mode.
@@ -134,10 +146,10 @@ def compute_rsm_viability(
     conn,
     # --- input values (CSV field formats) ---
     dog_owner: str, cat_owner: str, net_worth: int, cc_user: str, vehicle_count: int,
-    owner_renter: str, household_size: int, num_children: int,
+    owner_renter: str, household_size: int, num_children: int,home_improvement_diy:str ,
     # --- adjustment weights (a) — caller-supplied deltas, default 0 ---
-    a_dog_owner: float = 0.0, a_cat_owner: float = 0.0, a_net_worth: float = 0.0, a_credit_card: float = 0.0,
-    a_vehicle: float = 0.0, a_owner_renter: float = 0.0, a_household_size: float = 0.0, a_num_children: float = 0.0,
+    a_dog_owner: float = 0.0, a_cat_owner: float = 0.0, a_net_worth: float = 80.0, a_credit_card: float = 50.0,
+    a_vehicle: float = 20.0, a_owner_renter: float = 30.0, a_household_size: float = 15.0, a_num_children: float = 10.0, a_home_improvement_diy=0.0
 ) -> float:
     """
     Returns a weighted RSM business-viability score in [0, 1].
@@ -145,26 +157,30 @@ def compute_rsm_viability(
     Each feature contributes: result * (a + b)
       b = default business weight (all b values sum to 1.0)
       a = caller-supplied adjustment (positive to up-weight, negative to down-weight)
-
-    Default weight rationale (b values):
-      dog_owner       0.25  — pet ownership drives retail/service spend in RSM
-      cat_owner       0.20  — second-highest lifestyle signal for RSM pet economy
-      owner_renter    0.12  — owners spend more on home goods and local services
-      net_worth       0.12  — disposable income signal
-      household_size  0.10  — larger families = higher consumption
-      credit_card     0.08  — active spend behaviour indicator
-      num_children    0.08  — child-oriented spending (activities, food, retail)
-      vehicle         0.05  — car dependency affects certain business types
+    
     """
-    B_DOG_OWNER     = 0.25
-    B_CAT_OWNER     = 0.20
-    B_OWNER_RENTER  = 0.12
-    B_NET_WORTH     = 0.12
-    B_HOUSEHOLD_SZ  = 0.10
-    B_CREDIT_CARD   = 0.08
-    B_NUM_CHILDREN  = 0.08
-    B_VEHICLE       = 0.05
 
+# A bit redudant but I could simplify this later on, this is a set of important usual weights
+    B_DOG_OWNER     = 1
+    B_CAT_OWNER     = 20
+    B_OWNER_RENTER  = 12
+    B_NET_WORTH     = 100
+    B_HOUSEHOLD_SZ  = 10
+    B_CREDIT_CARD   = 40
+    B_NUM_CHILDREN  = 9
+    B_VEHICLE       = 5
+    B_HomeImprovementDIY = 40
+
+    _B_TOTAL        = B_DOG_OWNER + B_CAT_OWNER + B_OWNER_RENTER + B_NET_WORTH + B_HOUSEHOLD_SZ + B_CREDIT_CARD + B_NUM_CHILDREN + B_VEHICLE
+    B_DOG_OWNER     = B_DOG_OWNER     / _B_TOTAL
+    B_CAT_OWNER     = B_CAT_OWNER     / _B_TOTAL
+    B_OWNER_RENTER  = B_OWNER_RENTER  / _B_TOTAL
+    B_NET_WORTH     = B_NET_WORTH     / _B_TOTAL
+    B_HOUSEHOLD_SZ  = B_HOUSEHOLD_SZ  / _B_TOTAL
+    B_CREDIT_CARD   = B_CREDIT_CARD   / _B_TOTAL
+    B_NUM_CHILDREN  = B_NUM_CHILDREN  / _B_TOTAL
+    B_VEHICLE       = B_VEHICLE       / _B_TOTAL
+# This is the weights that are obtained from the previous processes. 
     dog_owner_score     = make_dog_owner(dog_owner, coords, conn)
     cat_owner_score     = make_cat_owner(cat_owner, coords, conn)
     net_worth_score     = make_net_worth(net_worth, coords, conn)
@@ -173,19 +189,25 @@ def compute_rsm_viability(
     owner_renter_score  = make_owner_renter(owner_renter, coords, conn)
     household_sz_score  = make_household_size(household_size, coords, conn)
     num_children_score  = make_num_children(num_children, coords, conn)
+    home_improvement_score = make_home_improvement_diy(home_improvement_diy,coords,conn)
+    sum_of_all_weights = (a_dog_owner+a_cat_owner+a_net_worth+a_credit_card+a_vehicle+a_owner_renter+a_household_size+a_num_children)
+    
+    if sum_of_all_weights<=0:
+        sum_of_all_weights = 1
 
     viability = (
-        dog_owner_score     * (B_DOG_OWNER    + a_dog_owner)    +
-        cat_owner_score     * (B_CAT_OWNER    + a_cat_owner)    +
-        net_worth_score     * (B_NET_WORTH    + a_net_worth)    +
-        credit_card_score   * (B_CREDIT_CARD  + a_credit_card)  +
-        vehicle_score       * (B_VEHICLE      + a_vehicle)      +
-        owner_renter_score  * (B_OWNER_RENTER + a_owner_renter) +
-        household_sz_score  * (B_HOUSEHOLD_SZ + a_household_size) +
-        num_children_score  * (B_NUM_CHILDREN + a_num_children)
+        dog_owner_score     * (B_DOG_OWNER    + (a_dog_owner/sum_of_all_weights))    +
+        cat_owner_score     * (B_CAT_OWNER    + (a_cat_owner/sum_of_all_weights))    +
+        net_worth_score     * (B_NET_WORTH    + (a_net_worth/sum_of_all_weights))    +
+        credit_card_score   * (B_CREDIT_CARD  + (a_credit_card/sum_of_all_weights))  +
+        vehicle_score       * (B_VEHICLE      + (a_vehicle/sum_of_all_weights))      +
+        owner_renter_score  * (B_OWNER_RENTER + (a_owner_renter/sum_of_all_weights)) +
+        household_sz_score  * (B_HOUSEHOLD_SZ + (a_household_size/sum_of_all_weights)) +
+        num_children_score  * (B_NUM_CHILDREN + (a_num_children/sum_of_all_weights)) +
+        home_improvement_score  * (B_HomeImprovementDIY + (a_home_improvement_diy/sum_of_all_weights))
     )
 
-    return viability
+    return round(viability,3)
 
 def main():
     conn = sqlite3.connect('API/Prediction/consumer_data.db')
@@ -199,23 +221,35 @@ def main():
                 coords=(lat, lon), conn=conn,
                 dog_owner='Y', cat_owner='N', net_worth=9,
                 cc_user='Y', vehicle_count=2,
-                owner_renter=0, household_size=3,
+                owner_renter='O', household_size=3,
                 num_children=1,
+                home_improvement_diy='Y'
+    # a_dog_owner = 10,
+    # a_cat_owner: float = 0,
+    # a_net_worth: float = 0,
+    # a_credit_card: float = 0,
+    # a_vehicle: float = 0,
+    # a_owner_renter: float = 0,
+    # a_household_size: float = 0,
+    # a_num_children: float = 0
+                
             )
         )
         for lat, lon in rows
         
     ]
-
+    lat_long_table = {}
     results.sort(key=lambda x: x[1], reverse=True)
     with open('API/Prediction/pretty_text.txt','w') as f:
         f.write(f"Coords -> Viability")
         f.write('\n')
         with open('API/Prediction/raw_text.txt','w') as f_2:
-            f_2.write(f"Coords , Viability")
-            f_2.write('\n')
             for coords, viability in results:
-                f_2.write(f'{coords},{viability}')
+                temp_str = f'{coords[0]},{coords[1]}'
+                if coords in lat_long_table:
+                    continue
+                lat_long_table[coords]=viability
+                f_2.write(temp_str)
                 f_2.write('\n')
                 f.write(f"{coords} -> {viability}")
                 f.write('\n')

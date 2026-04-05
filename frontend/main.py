@@ -124,7 +124,7 @@ def ask_ai_for_parameters(user_prompt: str):
 
     # Explicitly resolve .env from project root regardless of Streamlit's cwd
     env_path = Path(__file__).parent.parent / ".env"
-    load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=env_path, override=True)
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ValueError("GROQ_API_KEY not found in .env file. Add it as: GROQ_API_KEY=gsk_...")

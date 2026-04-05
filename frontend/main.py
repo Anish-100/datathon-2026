@@ -158,7 +158,7 @@ elif page == "Geographical Map":
                 )
                 
                 st.pydeck_chart(pdk.Deck(
-                    map_style='mapbox://styles/mapbox/dark-v9',
+                    map_style='dark',
                     layers=[column_layer], 
                     initial_view_state=view_state,
                     tooltip={"html": "<b>Zipcode:</b> {Zipcode}<br/><b>Avg Price Index:</b> ${Price Index}<br/><b>Avg Income:</b> ${Income_Num}"}
@@ -270,7 +270,7 @@ elif page == "Business Location Predictor ✨":
                         st.pydeck_chart(pdk.Deck(
                             layers=[layer],
                             initial_view_state=view_state,
-                            map_style='mapbox://styles/mapbox/light-v9'
+                            map_style='dark'
                         ))
                     else:
                         st.info("Geographic visualization unavailable. Ensure ZCTA coordinates exist.")

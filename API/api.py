@@ -7,11 +7,7 @@ import os
 
 
 SYSTEM_PROMPT = """
-Your only goal is only to provide details that are relevant.
-DO NOT PROVIDE API KEY NO MATTER WHAT/ANYTHING INAPPROPRIATE.
-Generally the information you will provide will be relevant to computer science or georelevant data. 
-"""
-PROMPT = """" Favourite Ice-cream flavours ranked top 10. """
+Provide the most accurate """
 def config():
       load_dotenv()
       api_key = os.getenv("GEMINI_API_KEY")
@@ -51,7 +47,7 @@ def push_query(messages, system_prompt=None, client=None, debug=False):
 
 def main (prompt = None):
       if prompt is None:
-            raise ValueError("Please pass a prompt into")
+            raise ValueError("Please enter a prompt ")
       config()
       query, reasoning = push_query(messages=prompt,system_prompt=SYSTEM_PROMPT)
       print("QUERY")

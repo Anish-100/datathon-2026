@@ -114,8 +114,8 @@ def obtain_lat_long(file_path: str) -> tuple[float, float]:
     avg_lon = sum(lons) / len(lons)
     return avg_lat, avg_lon
 
-def main():
-    file_path = 'API/Prediction/raw_text.txt'
+def main(file_path):
+    """ Input a file_path, and I will print the closest commerical zone to the geopoints."""
 
     lat, long = obtain_lat_long(file_path)
 

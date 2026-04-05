@@ -1,7 +1,5 @@
 import sqlite3
 
-RSM_coordsS = (92688, 92679)
-
 
 def make_dog_owner(dog_owner: str, coords: int, conn) -> int:
     """
@@ -144,21 +142,27 @@ def make_num_children(num_children: int, coords: int, conn) -> int:
 def compute_rsm_viability(
     coords: int,
     conn,
-    # --- input values (CSV field formats) ---
-    dog_owner: str, cat_owner: str, net_worth: int, cc_user: str, vehicle_count: int,
-    owner_renter: str, household_size: int, num_children: int,home_improvement_diy:str ,
-    # --- adjustment weights (a) — caller-supplied deltas, default 0 ---
-    a_dog_owner: float = 0.0, a_cat_owner: float = 0.0, a_net_worth: float = 80.0, a_credit_card: float = 50.0,
-    a_vehicle: float = 20.0, a_owner_renter: float = 30.0, a_household_size: float = 15.0, a_num_children: float = 10.0, a_home_improvement_diy=0.0
+    pairs: list
 ) -> float:
     """
-    Returns a weighted RSM business-viability score in [0, 1].
+    pairs: list of (value, adjustment_weight) tuples in order:
+        dog_owner, cat_owner, net_worth, cc_user, vehicle_count,
+        owner_renter, household_size, num_children, home_improvement_diy
 
-    Each feature contributes: result * (a + b)
+    Each feature contributes: result * (b + a/sum_a)
       b = default business weight (all b values sum to 1.0)
       a = caller-supplied adjustment (positive to up-weight, negative to down-weight)
-    
     """
+
+    (dog_owner, a_dog_owner) = pairs[0]
+    (cat_owner, a_cat_owner) = pairs[1]
+    (net_worth, a_net_worth) = pairs[2]
+    (cc_user, a_credit_card) = pairs[3]
+    (vehicle_count, a_vehicle) = pairs[4]
+    (owner_renter, a_owner_renter) = pairs[5]
+    (household_size, a_household_size) = pairs[6]
+    (num_children, a_num_children) = pairs[7]
+    (home_improvement_diy, a_home_improvement_diy) = pairs[8]
 
 # A bit redudant but I could simplify this later on, this is a set of important usual weights
     B_DOG_OWNER     = 1
@@ -171,7 +175,8 @@ def compute_rsm_viability(
     B_VEHICLE       = 10
     B_HomeImprovementDIY = 2
 
-    _B_TOTAL        = B_DOG_OWNER + B_CAT_OWNER + B_OWNER_RENTER + B_NET_WORTH + B_HOUSEHOLD_SZ + B_CREDIT_CARD + B_NUM_CHILDREN + B_VEHICLE
+    _B_TOTAL        = B_DOG_OWNER + B_CAT_OWNER + B_OWNER_RENTER + B_NET_WORTH +\
+        B_HOUSEHOLD_SZ + B_CREDIT_CARD + B_NUM_CHILDREN + B_VEHICLE + B_HomeImprovementDIY
     B_DOG_OWNER     = B_DOG_OWNER     / _B_TOTAL
     B_CAT_OWNER     = B_CAT_OWNER     / _B_TOTAL
     B_OWNER_RENTER  = B_OWNER_RENTER  / _B_TOTAL
@@ -180,7 +185,8 @@ def compute_rsm_viability(
     B_CREDIT_CARD   = B_CREDIT_CARD   / _B_TOTAL
     B_NUM_CHILDREN  = B_NUM_CHILDREN  / _B_TOTAL
     B_VEHICLE       = B_VEHICLE       / _B_TOTAL
-# This is the weights that are obtained from the previous processes. 
+
+# This is the weights that are obtained from the data.
     dog_owner_score     = make_dog_owner(dog_owner, coords, conn)
     cat_owner_score     = make_cat_owner(cat_owner, coords, conn)
     net_worth_score     = make_net_worth(net_worth, coords, conn)
@@ -191,7 +197,7 @@ def compute_rsm_viability(
     num_children_score  = make_num_children(num_children, coords, conn)
     home_improvement_score = make_home_improvement_diy(home_improvement_diy,coords,conn)
     sum_of_all_weights = (a_dog_owner+a_cat_owner+a_net_worth+a_credit_card+a_vehicle+a_owner_renter+a_household_size+a_num_children)
-    
+
     if sum_of_all_weights<=0:
         sum_of_all_weights = 1
 
@@ -209,35 +215,8 @@ def compute_rsm_viability(
 
     return round(viability,3)
 
-def main():
-    conn = sqlite3.connect('API/Prediction/consumer_data.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT Latitude, Longitude FROM consumer_data")
-    rows = cursor.fetchall()
-    results = [
-        (
-            (lat, lon),
-            compute_rsm_viability(
-                coords=(lat, lon), conn=conn,
-                dog_owner='Y', cat_owner='N', net_worth=9,
-                cc_user='Y', vehicle_count=2,
-                owner_renter='O', household_size=3,
-                num_children=1,
-                home_improvement_diy='Y'
-    # a_dog_owner = 10,
-    # a_cat_owner: float = 0,
-    # a_net_worth: float = 0,
-    # a_credit_card: float = 0,
-    # a_vehicle: float = 0,
-    # a_owner_renter: float = 0,
-    # a_household_size: float = 0,
-    # a_num_children: float = 0
-                
-            )
-        )
-        for lat, lon in rows
-        
-    ]
+def save_to_file(results):
+    """ Saves results to file"""
     lat_long_table = {}
     results.sort(key=lambda x: x[1], reverse=True)
     with open('API/Prediction/pretty_text.txt','w') as f:
@@ -253,6 +232,26 @@ def main():
                 f_2.write('\n')
                 f.write(f"{coords} -> {viability}")
                 f.write('\n')
+
+
+def main(pairs:list):
+    conn = sqlite3.connect('API/Prediction/consumer_data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT Latitude, Longitude FROM consumer_data")
+    rows = cursor.fetchall()
+    results = [
+        (
+            (lat, lon),
+            compute_rsm_viability(
+                coords=(lat, lon), conn=conn,
+                pairs=pairs)
+        )
+        for lat, lon in rows
+        
+    ]
+    save_to_file(results)
+
+
 
 if __name__ == '__main__':
     main()

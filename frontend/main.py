@@ -45,12 +45,12 @@ API_DIR = Path(__file__).parent.parent / "API"
 
 @st.cache_data
 def load_housing_data():
-    csv_path = DATA_DIR / "Newest_with_headers_OCACS_2021_Housing_Characteristics_for_ZIP_Code_Tabulation_Areas copy.csv"
+    csv_path = API_DIR / "OC_Housing_Detailed_Cleaned.csv"
     if csv_path.exists():
         df = pd.read_csv(csv_path)
-        # Rename INTPTLAT20 and INTPTLON20 to lat and lon for easy mapping
-        if 'INTPTLAT20' in df.columns and 'INTPTLON20' in df.columns:
-            df = df.rename(columns={'INTPTLAT20': 'lat', 'INTPTLON20': 'lon'})
+        # Rename columns to match what `get_zip_coords` down the line expects
+        if 'Latitude' in df.columns and 'Longitude' in df.columns and 'Zip_Code' in df.columns:
+            df = df.rename(columns={'Latitude': 'lat', 'Longitude': 'lon', 'Zip_Code': 'ZCTA5CE20'})
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
             df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         return df

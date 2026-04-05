@@ -162,14 +162,14 @@ def compute_rsm_viability(
 
 # A bit redudant but I could simplify this later on, this is a set of important usual weights
     B_DOG_OWNER     = 1
-    B_CAT_OWNER     = 20
-    B_OWNER_RENTER  = 12
-    B_NET_WORTH     = 100
-    B_HOUSEHOLD_SZ  = 10
-    B_CREDIT_CARD   = 40
-    B_NUM_CHILDREN  = 9
-    B_VEHICLE       = 5
-    B_HomeImprovementDIY = 40
+    B_CAT_OWNER     = 1
+    B_OWNER_RENTER  = 20
+    B_NET_WORTH     = 35
+    B_HOUSEHOLD_SZ  = 15
+    B_CREDIT_CARD   = 25
+    B_NUM_CHILDREN  = 3
+    B_VEHICLE       = 10
+    B_HomeImprovementDIY = 2
 
     _B_TOTAL        = B_DOG_OWNER + B_CAT_OWNER + B_OWNER_RENTER + B_NET_WORTH + B_HOUSEHOLD_SZ + B_CREDIT_CARD + B_NUM_CHILDREN + B_VEHICLE
     B_DOG_OWNER     = B_DOG_OWNER     / _B_TOTAL
@@ -243,7 +243,7 @@ def main():
     with open('API/Prediction/pretty_text.txt','w') as f:
         f.write(f"Coords -> Viability")
         f.write('\n')
-        with open('API/Prediction/raw_text.txt','w') as f_2:
+        with open('API/Prediction/raw_text_2.txt','w') as f_2:
             for coords, viability in results:
                 temp_str = f'{coords[0]},{coords[1]}'
                 if coords in lat_long_table:

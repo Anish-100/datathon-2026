@@ -114,12 +114,13 @@ def obtain_lat_long(file_path: str) -> tuple[float, float]:
     avg_lon = sum(lons) / len(lons)
     return avg_lat, avg_lon
 
+def main():
+    file_path = 'API/Prediction/raw_text.txt'
 
-# ── Standalone test ──────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    test_lat, test_lon = obtain_lat_long("API/Prediction/raw_text.txt")
-    print(f"Looking for commercial zone near ({test_lat}, {test_lon}) ...")
-    result = find_closest_commercial_zone(test_lat, test_lon)
+    lat, long = obtain_lat_long(file_path)
+
+    print(f"Looking for commercial zone near ({lat}, {long}) ...")
+    result = find_closest_commercial_zone(lat, long)
     if result:
         print(f"\n── Closest Commercial Zone ──────────────────────────────")
         print(f"  Name        : {result['name']}")
@@ -129,3 +130,9 @@ if __name__ == "__main__":
         print(f"─────────────────────────────────────────────────────────")
     else:
         print("  No commercial zones found nearby.")
+
+
+
+# ── Standalone test ──────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    main()

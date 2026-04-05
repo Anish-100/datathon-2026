@@ -247,7 +247,7 @@ elif page == "Business Location Predictor ✨":
                 st.dataframe(results[['City', 'Zipcode', 'Viability Score', 'Median Household Income Last_12', 'Price Index', 'Crime Data City Level (Arrest Disposition)', 'Distance from Irvine Spectrum (km)', 'City Park Scores']], use_container_width=True)
 
                 # Heatmap rendering
-                st.markdown("### Viability Heatmap 🔥")
+                st.markdown("### Viability Heatmap")
                 coords = get_zip_coords(housing_df)
                 if not coords.empty:
                     heatmap_data = pd.merge(coords, results, on='Zipcode', how='inner')

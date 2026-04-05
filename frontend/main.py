@@ -116,30 +116,30 @@ REASON: Targeting affluent professionals who value safety and modern environment
 
 def ask_ai_for_parameters(user_prompt: str):
     """
-    Calls the Gemini API and parses the returned JSON into a criteria dict.
-    Returns (criteria_dict, reason_str) or raises an exception.
+    Calls the Groq API (llama-3.3-70b-versatile) and parses the returned JSON
+    into a criteria dict. Returns (criteria_dict, reason_str) or raises.
     """
     from dotenv import load_dotenv
-    from google import genai
-    from google.genai import types
+    from groq import Groq
 
     # Explicitly resolve .env from project root regardless of Streamlit's cwd
     env_path = Path(__file__).parent.parent / ".env"
     load_dotenv(dotenv_path=env_path)
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not found in .env file. Make sure you created the .env file in the project root.")
+        raise ValueError("GROQ_API_KEY not found in .env file. Add it as: GROQ_API_KEY=gsk_...")
 
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=AI_SYSTEM_PROMPT,
-        ),
+    client = Groq(api_key=api_key)
+    chat = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": AI_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+        ],
+        temperature=0.3,
     )
 
-    raw = response.text.strip()
+    raw = chat.choices[0].message.content.strip()
 
     # Extract the JSON block (everything from first { to last })
     json_match = re.search(r'\{.*?\}', raw, re.DOTALL)
@@ -324,19 +324,20 @@ elif page == "Business Location Predictor":
         if k not in st.session_state:
             st.session_state[k] = v
 
-    # ── AI Prompt Section ────────────────────────────────────────────────────
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-                border-left: 4px solid #E65100; border-radius: 8px;
-                padding: 1.2rem 1.4rem; margin-bottom: 1.5rem;">
-        <h3 style="margin:0 0 0.3rem 0; color:#E65100;">✨ Describe Your Business</h3>
-        <p style="margin:0; color:#555; font-size:14px;">
-            Tell the AI what kind of business you're opening and who your customers are.
-            It will automatically tune all parameters below to match your needs.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Map AI param keys → widget keys (they must match for session_state to drive the widget)
+    PARAM_TO_WIDGET_KEY = {
+        "min_income": "min_income",
+        "max_crime": "max_crime",
+        "focus_high_income": "focus_high_income",
+        "focus_low_crime": "focus_low_crime",
+        "focus_low_house_price": "focus_low_house_price",
+        "importance_parks": "importance_parks",
+        "focus_renters": "focus_renters",
+        "focus_newer_devs": "focus_newer_devs",
+        "focus_families": "focus_families",
+    }
 
+    # ── AI Prompt Section ────────────────────────────────────────────────────
     ai_prompt = st.text_area(
         label="Business description",
         placeholder='e.g. "I want to open a premium coffee shop targeting young professionals and remote workers who value walkable, modern neighborhoods."',
@@ -352,6 +353,8 @@ elif page == "Business Location Predictor":
         if st.button("Reset to Defaults", use_container_width=True):
             for k, v in PARAM_DEFAULTS.items():
                 st.session_state[k] = v
+            st.session_state["ai_set"] = False
+            st.session_state["ai_reason"] = ""
             st.rerun()
 
     if ask_ai_clicked:
@@ -361,22 +364,26 @@ elif page == "Business Location Predictor":
             with st.spinner("AI is analyzing your business and tuning parameters..."):
                 try:
                     params, reason = ask_ai_for_parameters(ai_prompt.strip())
-                    # Write all params into session state
-                    for k, v in params.items():
-                        st.session_state[k] = v
+                    # Write params into session state using widget keys so
+                    # Streamlit picks them up properly on rerun
+                    for param_key, widget_key in PARAM_TO_WIDGET_KEY.items():
+                        if param_key in params:
+                            st.session_state[widget_key] = params[param_key]
                     st.session_state["ai_reason"] = reason
                     st.session_state["ai_set"] = True
                     st.rerun()
                 except Exception as e:
                     err = str(e)
-                    if "429" in err or "RESOURCE_EXHAUSTED" in err or "quota" in err.lower():
+                    if "rate_limit" in err.lower() or "429" in err or "quota" in err.lower():
                         st.error(
-                            "**API Quota Exhausted.** Your Gemini API key has hit its free-tier limit.\n\n"
-                            "**Fix:** Go to [aistudio.google.com](https://aistudio.google.com), generate a new API key "
-                            "(use a different Google account if needed), and update `GEMINI_API_KEY` in your `.env` file."
+                            "**Groq Rate Limit Hit.** Wait a few seconds and try again — "
+                            "Groq free tier allows ~30 requests/minute."
                         )
-                    elif "GEMINI_API_KEY" in err:
-                        st.error("**Missing API Key.** Add `GEMINI_API_KEY=your_key` to the `.env` file in the project root.")
+                    elif "GROQ_API_KEY" in err:
+                        st.error(
+                            "**Missing Groq API Key.** Go to [console.groq.com](https://console.groq.com), "
+                            "create an API key, and add `GROQ_API_KEY=gsk_...` to your `.env` file."
+                        )
                     else:
                         st.error(f"AI parameter extraction failed: {e}")
 
@@ -393,53 +400,48 @@ elif page == "Business Location Predictor":
 
     col1, col2 = st.columns(2)
     with col1:
+        # Using the session_state key as the widget key (no separate value=)
+        # so that writing to st.session_state[key] before st.rerun() takes effect.
         min_inc = st.number_input(
             "Minimum Neighborhood Household Income ($)",
-            value=st.session_state["min_income"],
+            min_value=0,
             step=5000,
-            key="num_min_income",
+            key="min_income",
         )
         max_cr = st.number_input(
             "Maximum Acceptable Crime Index (Lower is safer)",
-            value=st.session_state["max_crime"],
+            min_value=0,
             step=500,
-            key="num_max_crime",
+            key="max_crime",
         )
         focus_inc = st.slider(
             "Focus on High Income Areas (0-10)", 0, 10,
-            value=st.session_state["focus_high_income"],
-            key="sl_focus_high_income",
+            key="focus_high_income",
         )
         crime_focus = st.slider(
             "Focus on Strict Low Crime (0-10)", 0, 10,
-            value=st.session_state["focus_low_crime"],
-            key="sl_focus_low_crime",
+            key="focus_low_crime",
         )
     with col2:
         focus_cheap = st.slider(
             "Focus on Affordable Real Estate (0-10)", 0, 10,
-            value=st.session_state["focus_low_house_price"],
-            key="sl_focus_low_house_price",
+            key="focus_low_house_price",
         )
         parks_prox = st.slider(
             "Importance of City Parks (0-10)", 0, 10,
-            value=st.session_state["importance_parks"],
-            key="sl_importance_parks",
+            key="importance_parks",
         )
         focus_renters = st.slider(
             "Focus on High Renter Population (0-10)", 0, 10,
-            value=st.session_state["focus_renters"],
-            key="sl_focus_renters",
+            key="focus_renters",
         )
         focus_newer = st.slider(
             "Focus on Newer Developments (0-10)", 0, 10,
-            value=st.session_state["focus_newer_devs"],
-            key="sl_focus_newer_devs",
+            key="focus_newer_devs",
         )
         focus_family = st.slider(
             "Focus on Large Families (0-10)", 0, 10,
-            value=st.session_state["focus_families"],
-            key="sl_focus_families",
+            key="focus_families",
         )
 
     final_criteria = {

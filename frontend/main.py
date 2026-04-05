@@ -45,7 +45,7 @@ API_DIR = Path(__file__).parent.parent / "API"
 
 @st.cache_data
 def load_housing_data():
-    csv_path = DATA_DIR / "OCACS_2021_Housing_Characteristics_for_ZIP_Code_Tabulation_Areas.csv"
+    csv_path = DATA_DIR / "Newest_with_headers_OCACS_2021_Housing_Characteristics_for_ZIP_Code_Tabulation_Areas copy.csv"
     if csv_path.exists():
         df = pd.read_csv(csv_path)
         # Rename INTPTLAT20 and INTPTLON20 to lat and lon for easy mapping

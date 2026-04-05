@@ -123,10 +123,12 @@ def ask_ai_for_parameters(user_prompt: str):
     from google import genai
     from google.genai import types
 
-    load_dotenv()
+    # Explicitly resolve .env from project root regardless of Streamlit's cwd
+    env_path = Path(__file__).parent.parent / ".env"
+    load_dotenv(dotenv_path=env_path)
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not found in .env file.")
+        raise ValueError("GEMINI_API_KEY not found in .env file. Make sure you created the .env file in the project root.")
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
@@ -366,7 +368,17 @@ elif page == "Business Location Predictor":
                     st.session_state["ai_set"] = True
                     st.rerun()
                 except Exception as e:
-                    st.error(f"AI parameter extraction failed: {e}")
+                    err = str(e)
+                    if "429" in err or "RESOURCE_EXHAUSTED" in err or "quota" in err.lower():
+                        st.error(
+                            "**API Quota Exhausted.** Your Gemini API key has hit its free-tier limit.\n\n"
+                            "**Fix:** Go to [aistudio.google.com](https://aistudio.google.com), generate a new API key "
+                            "(use a different Google account if needed), and update `GEMINI_API_KEY` in your `.env` file."
+                        )
+                    elif "GEMINI_API_KEY" in err:
+                        st.error("**Missing API Key.** Add `GEMINI_API_KEY=your_key` to the `.env` file in the project root.")
+                    else:
+                        st.error(f"AI parameter extraction failed: {e}")
 
     # Show AI reasoning banner if parameters were just set
     if st.session_state.get("ai_set") and st.session_state.get("ai_reason"):

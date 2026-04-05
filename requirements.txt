@@ -3,6 +3,5 @@ pandas==3.0.2
 pydeck==0.9.1
 numpy==2.4.4
 python-dotenv==1.2.2
-google-genai==1.70.0
 groq==1.1.2
 requests==2.33.1

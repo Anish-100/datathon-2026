@@ -146,4 +146,4 @@ def main(file_path):
 
 
 if __name__ == "__main__":
-    main()
+    main("API/Prediction/raw_text_2.txt")
